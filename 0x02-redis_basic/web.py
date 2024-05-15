@@ -1,37 +1,34 @@
 #!/usr/bin/env python3
 """ expiring web cache module """
 
-import requests
 import redis
-import time
+import requests
+from typing import Callable
+from functools import wraps
 
-# Initialize Redis connection
-r = redis.Redis()
+redis = redis.Redis()
 
 
+def wrap_requests(fn: Callable) -> Callable:
+    """ Decorator wrapper """
+
+    @wraps(fn)
+    def wrapper(url):
+        """ Wrapper for decorator guy """
+        redis.incr(f"count:{url}")
+        cached_response = redis.get(f"cached:{url}")
+        if cached_response:
+            return cached_response.decode('utf-8')
+        result = fn(url)
+        redis.setex(f"cached:{url}", 10, result)
+        return result
+
+    return wrapper
+
+
+@wrap_requests
 def get_page(url: str) -> str:
-    count_key = f"count:{url}"
-    page_key = f"page:{url}"
-
-    # Increment the access count for the URL
-    r.incr(count_key)
-
-    # Check if the page content is already cached
-    cached_page = r.get(page_key)
-    if cached_page:
-        return cached_page.decode()
-
-    # Fetch the HTML content from the URL
+    """get page self descriptive
+    """
     response = requests.get(url)
-    page_content = response.text
-
-    # Cache the page content with an expiration time of 10 seconds
-    r.setex(page_key, 10, page_content)
-
-    return page_content
-
-
-# Test the get_page function
-url = "http://slowwly.robertomurray.co.uk/delay/5000/url/http://www.google.com"
-html_content = get_page(url)
-print(html_content)
+    return response.text
