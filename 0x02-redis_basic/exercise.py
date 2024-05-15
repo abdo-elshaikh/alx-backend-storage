@@ -97,6 +97,17 @@ class Cache:
             return fn(self._redis.get(key))
         data = self._redis.get(key)
         return data
+    
+    def replay(self, func):
+        """replay method"""
+        func_name = func.__qualname__
+        input_args_list = self._redis.lrange("{}:inputs".format(func_name), 0, -1)
+        output_list = self._redis.lrange("{}:outputs".format(func_name), 0, -1)
+
+        print("Function {} was called {} times:".format(func_name, len(input_args_list)))
+        for input_args, output in zip(input_args_list, output_list):
+            print("{}{} -> {}".format(func_name, input_args.decode(), output.decode()))
+    
 
     def get_int(self: bytes) -> int:
         """get a number"""
